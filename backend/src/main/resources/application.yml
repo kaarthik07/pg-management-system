@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: pg-management-system
+  profiles:
+    active: local   # ensure local profile is active by default for dev
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+server:
+  port: 8080
