@@ -1,0 +1,47 @@
+# Maven build
+target/
+*.jar
+*.war
+*.ear
+*.class
+
+# Maven wrapper
+!.mvn/wrapper/maven-wrapper.jar
+.mvn/wrapper/maven-wrapper.properties
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+out/
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# VS Code
+.vscode/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Spring Boot
+*.pid
+*.seed
+
+# Node / Frontend (if added later)
+node_modules/
+dist/
+build/
+
+# Test reports
+surefire-reports/
+failsafe-reports/
+
+# Local environment configs (don’t commit secrets!)
+application-local.yml

@@ -1,0 +1,2092 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PG Platform API \u2013 Requirements Freeze v1 (Full, Validated, v1.0.3)",
+    "version": "1.0.3",
+    "description": "Full contract for PG Owners & Tenants with QR/code self\u2011onboarding, OTP auth, onboarding fee, tenant list filters, rooms, billing/receipts, reminders, 30\u2011day notice & settlement (early exit fee + owner override), cross\u2011PG dues registry, referrals + wallet + subscription, branding & settings, and reports."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080/api/v1",
+      "description": "Local Dev"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Organizations",
+      "description": "White\u2011label branding and PG identity (slug/code/QR)."
+    },
+    {
+      "name": "Auth",
+      "description": "OTP\u2011based auth and current user profile."
+    },
+    {
+      "name": "Public",
+      "description": "Tenant\u2011facing QR/code flows and public join with onboarding fee."
+    },
+    {
+      "name": "Tenants",
+      "description": "Tenant CRUD and filtered listing."
+    },
+    {
+      "name": "Rooms",
+      "description": "Room inventory and allocation."
+    },
+    {
+      "name": "Billing",
+      "description": "Monthly bills and payments."
+    },
+    {
+      "name": "Receipts",
+      "description": "Payment receipts."
+    },
+    {
+      "name": "Reminders",
+      "description": "Message payloads for WhatsApp/SMS (no provider integration in MVP)."
+    },
+    {
+      "name": "Settings",
+      "description": "Org\u2011level configuration: due day, templates, referral bonus, onboarding fee, early exit fee."
+    },
+    {
+      "name": "Notices",
+      "description": "Tenant\u2011initiated notice request + owner decision + settlement compute/confirm."
+    },
+    {
+      "name": "Dues",
+      "description": "Cross\u2011PG dues registry (create/search/clear)."
+    },
+    {
+      "name": "Referrals",
+      "description": "Owner referral link/claim flow with wallet credit + admin notification."
+    },
+    {
+      "name": "Wallet",
+      "description": "Wallet balance/transactions and subscription renewal."
+    },
+    {
+      "name": "Reports",
+      "description": "Collections vs outstanding."
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "Theme": {
+        "type": "object",
+        "properties": {
+          "primary": {
+            "type": "string"
+          },
+          "secondary": {
+            "type": "string"
+          },
+          "bg": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "Organization": {
+        "type": "object",
+        "description": "PG identity for white\u2011label branding and routing.",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "logoUrl": {
+            "type": "string"
+          },
+          "theme": {
+            "$ref": "#/components/schemas/Theme"
+          }
+        }
+      },
+      "OtpSendRequest": {
+        "type": "object",
+        "required": [
+          "phone"
+        ],
+        "properties": {
+          "phone": {
+            "type": "string"
+          },
+          "orgSlug": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "OtpVerifyRequest": {
+        "type": "object",
+        "required": [
+          "phone",
+          "code"
+        ],
+        "properties": {
+          "phone": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "AuthToken": {
+        "type": "object",
+        "properties": {
+          "jwt": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "OWNER",
+              "STAFF",
+              "RESIDENT"
+            ]
+          },
+          "orgId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          }
+        }
+      },
+      "Lead": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "orgId": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "INVITED",
+              "COMPLETED",
+              "EXPIRED",
+              "CANCELLED"
+            ]
+          }
+        }
+      },
+      "TenantStatus": {
+        "type": "string",
+        "enum": [
+          "ACTIVE",
+          "NOTICE",
+          "RELIEVED",
+          "UNRELIEVED",
+          "LEFT"
+        ]
+      },
+      "Tenant": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "orgId": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "currentRoomId": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/TenantStatus"
+          }
+        }
+      },
+      "TenantCreate": {
+        "type": "object",
+        "required": [
+          "fullName",
+          "phone",
+          "startDate"
+        ],
+        "properties": {
+          "fullName": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "currentRoomId": {
+            "type": "string"
+          }
+        }
+      },
+      "RoomType": {
+        "type": "string",
+        "enum": [
+          "SINGLE",
+          "DOUBLE",
+          "TRIPLE"
+        ]
+      },
+      "Room": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "orgId": {
+            "type": "string"
+          },
+          "number": {
+            "type": "string"
+          },
+          "floor": {
+            "type": "integer"
+          },
+          "type": {
+            "$ref": "#/components/schemas/RoomType"
+          },
+          "baseRent": {
+            "type": "number"
+          },
+          "isOccupied": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RoomCreate": {
+        "type": "object",
+        "required": [
+          "number",
+          "baseRent"
+        ],
+        "properties": {
+          "number": {
+            "type": "string"
+          },
+          "floor": {
+            "type": "integer"
+          },
+          "type": {
+            "$ref": "#/components/schemas/RoomType"
+          },
+          "baseRent": {
+            "type": "number"
+          }
+        }
+      },
+      "BillItem": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number"
+          }
+        }
+      },
+      "MonthlyBill": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "month": {
+            "type": "string",
+            "example": "2025-09"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BillItem"
+            }
+          },
+          "totalDue": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "PAID",
+              "PARTIAL"
+            ]
+          },
+          "dueDate": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "MarkPaidRequest": {
+        "type": "object",
+        "required": [
+          "amountReceived",
+          "mode",
+          "paidDate"
+        ],
+        "properties": {
+          "amountReceived": {
+            "type": "number"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "CASH",
+              "UPI",
+              "BANK"
+            ]
+          },
+          "ref": {
+            "type": "string"
+          },
+          "paidDate": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "Receipt": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "billId": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BillItem"
+            }
+          },
+          "amountReceived": {
+            "type": "number"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          }
+        }
+      },
+      "Settings": {
+        "type": "object",
+        "properties": {
+          "defaultDueDay": {
+            "type": "integer",
+            "example": 5
+          },
+          "reminderDaysBefore": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "example": [
+              5,
+              2,
+              0
+            ]
+          },
+          "whatsappTemplate": {
+            "type": "string"
+          },
+          "referralBonusAmount": {
+            "type": "number",
+            "example": 150
+          },
+          "onboardingFee": {
+            "type": "object",
+            "properties": {
+              "period": {
+                "type": "string",
+                "enum": [
+                  "WEEK",
+                  "MONTH",
+                  "YEAR"
+                ]
+              },
+              "amount": {
+                "type": "number"
+              }
+            }
+          },
+          "noticeDays": {
+            "type": "integer",
+            "example": 30
+          },
+          "earlyExit": {
+            "type": "object",
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "FLAT",
+                  "PER_DAY",
+                  "PERCENT"
+                ]
+              },
+              "flatAmount": {
+                "type": "number"
+              },
+              "percent": {
+                "type": "number"
+              },
+              "maxAmount": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      },
+      "NoticeRequestStatus": {
+        "type": "string",
+        "enum": [
+          "PENDING",
+          "APPROVED",
+          "REJECTED",
+          "MODIFIED"
+        ]
+      },
+      "NoticeRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "proposedExitOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "finalExitOn": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/NoticeRequestStatus"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "ownerNote": {
+            "type": "string"
+          }
+        }
+      },
+      "SettlementPreview": {
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string"
+          },
+          "givenOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "intendedExitOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "daysShort": {
+            "type": "integer"
+          },
+          "baseCharges": {
+            "type": "number"
+          },
+          "earlyExitFee": {
+            "type": "number"
+          },
+          "discountOrWaiver": {
+            "type": "number"
+          },
+          "depositAdjustment": {
+            "type": "number"
+          },
+          "totalDue": {
+            "type": "number"
+          },
+          "calculationMode": {
+            "type": "string"
+          }
+        }
+      },
+      "DuesRecord": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "residentKey": {
+            "type": "string"
+          },
+          "orgId": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "clearedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "Referral": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "referrerOrgId": {
+            "type": "string"
+          },
+          "claimantOrgId": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "APPROVED",
+              "REJECTED"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Wallet": {
+        "type": "object",
+        "properties": {
+          "balance": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string",
+            "example": "INR"
+          },
+          "transactions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WalletTxn"
+            }
+          }
+        }
+      },
+      "WalletTxn": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "CREDIT",
+              "DEBIT"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "REFERRAL_BONUS",
+              "SUBSCRIPTION"
+            ]
+          },
+          "amount": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SubscriptionRenewRequest": {
+        "type": "object",
+        "properties": {
+          "planId": {
+            "type": "string"
+          },
+          "useWallet": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "PublicOrgResolve": {
+        "type": "object",
+        "properties": {
+          "org": {
+            "$ref": "#/components/schemas/Organization"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/Settings"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Public"
+        ],
+        "summary": "Health check",
+        "description": "Basic health endpoint for uptime probes.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/orgs/{slug}": {
+      "get": {
+        "tags": [
+          "Organizations"
+        ],
+        "summary": "Get organization branding by slug",
+        "description": "Returns PG branding (name/logo/colors) for white\u2011label runtime theming.",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Branding returned"
+          }
+        }
+      }
+    },
+    "/orgs/{slug}/qr": {
+      "get": {
+        "tags": [
+          "Organizations"
+        ],
+        "summary": "Get QR/referral code for the PG",
+        "description": "Provides a short code and QR image URL usable at reception for tenant self\u2011onboarding.",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Code and QR returned"
+          }
+        }
+      }
+    },
+    "/orgs/resolve": {
+      "get": {
+        "tags": [
+          "Organizations"
+        ],
+        "summary": "Resolve organization by short code",
+        "description": "Used when the tenant already has the app and types the PG code.",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Org resolve success"
+          }
+        }
+      }
+    },
+    "/auth/otp/send": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Send OTP",
+        "description": "Initiates OTP login. Optionally include orgSlug for branded flow.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OtpSendRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP sent"
+          }
+        }
+      }
+    },
+    "/auth/otp/verify": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Verify OTP",
+        "description": "Completes login and returns JWT with role/org context.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OtpVerifyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "JWT"
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Current user",
+        "description": "Returns current authenticated user and role.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User"
+          }
+        }
+      }
+    },
+    "/public/scan": {
+      "get": {
+        "tags": [
+          "Public"
+        ],
+        "summary": "QR landing (by code)",
+        "description": "QR resolves to this endpoint; returns org branding + settings for onboarding screen.",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Org + settings"
+          }
+        }
+      }
+    },
+    "/public/join/{token}": {
+      "get": {
+        "tags": [
+          "Public"
+        ],
+        "summary": "Resolve invite token",
+        "description": "Pre\u2011populates join with org/lead info and shows onboarding fee as per settings.",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Join info"
+          }
+        }
+      }
+    },
+    "/public/join/{token}/complete": {
+      "post": {
+        "tags": [
+          "Public"
+        ],
+        "summary": "Complete onboarding",
+        "description": "Creates tenant under the PG. Onboarding fee is recorded according to org settings (period/amount).",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fullName": {
+                    "type": "string"
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "acceptedTnC": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Tenant created"
+          }
+        }
+      }
+    },
+    "/tenants": {
+      "get": {
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "List tenants with filters",
+        "description": "Supports search by room, floor, name/phone and status.",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "room",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "floor",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/TenantStatus"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tenants returned"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Create tenant (owner)",
+        "description": "Alternative to public join; owner creates tenant directly.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TenantCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Tenant created"
+          }
+        }
+      }
+    },
+    "/tenants/{id}": {
+      "get": {
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Get tenant",
+        "description": "Returns tenant details including status and room.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tenant returned"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Update tenant (incl. room allocation)",
+        "description": "Owner can assign/change currentRoomId or edit basics.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Tenant"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tenant updated"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Delete tenant",
+        "description": "Hard delete (admin/testing only).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          }
+        }
+      }
+    },
+    "/rooms": {
+      "get": {
+        "tags": [
+          "Rooms"
+        ],
+        "summary": "List rooms",
+        "description": "Fetch room inventory for the org.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rooms returned"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Rooms"
+        ],
+        "summary": "Create room",
+        "description": "Add room with number/floor/type/baseRent.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoomCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Room created"
+          }
+        }
+      }
+    },
+    "/rooms/{id}": {
+      "get": {
+        "tags": [
+          "Rooms"
+        ],
+        "summary": "Get room",
+        "description": "Return a room by id.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Room returned"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Rooms"
+        ],
+        "summary": "Update room",
+        "description": "Edit room number/floor/type/baseRent.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Room updated"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Rooms"
+        ],
+        "summary": "Delete room",
+        "description": "Delete unassigned room.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          }
+        }
+      }
+    },
+    "/bills": {
+      "get": {
+        "tags": [
+          "Billing"
+        ],
+        "summary": "List bills",
+        "description": "Owner views monthly bills (filters in future).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bills returned"
+          }
+        }
+      }
+    },
+    "/bills/{id}": {
+      "get": {
+        "tags": [
+          "Billing"
+        ],
+        "summary": "Get bill",
+        "description": "Return a bill with items/due/status.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bill returned"
+          }
+        }
+      }
+    },
+    "/bills/generate": {
+      "post": {
+        "tags": [
+          "Billing"
+        ],
+        "summary": "Generate monthly bills",
+        "description": "Create bills for active tenants for a given year/month.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "year",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "month",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Generation started"
+          }
+        }
+      }
+    },
+    "/bills/{id}/mark-paid": {
+      "put": {
+        "tags": [
+          "Billing"
+        ],
+        "summary": "Mark bill paid",
+        "description": "Record payment and update status (PAID/PARTIAL).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkPaidRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bill updated"
+          }
+        }
+      }
+    },
+    "/receipts": {
+      "get": {
+        "tags": [
+          "Receipts"
+        ],
+        "summary": "List receipts",
+        "description": "All receipts; filterable later.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Receipts returned"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Receipts"
+        ],
+        "summary": "Create receipt",
+        "description": "Create receipt (standalone or for a bill).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Receipt"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Receipt created"
+          }
+        }
+      }
+    },
+    "/receipts/{id}": {
+      "get": {
+        "tags": [
+          "Receipts"
+        ],
+        "summary": "Get receipt",
+        "description": "Return a receipt by id.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Receipt returned"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Receipts"
+        ],
+        "summary": "Update receipt",
+        "description": "Edit amount/mode/ref/note.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Receipt updated"
+          }
+        }
+      }
+    },
+    "/reminders": {
+      "get": {
+        "tags": [
+          "Reminders"
+        ],
+        "summary": "Reminder payloads",
+        "description": "Generate WhatsApp/SMS\u2011ready messages for pending/overdue bills (no provider integration in MVP).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reminders returned"
+          }
+        }
+      }
+    },
+    "/settings": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get settings",
+        "description": "Due day, reminder template, referral bonus, onboarding fee, notice/exit config.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Settings"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update settings",
+        "description": "Update org configuration knobs.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Settings"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          }
+        }
+      }
+    },
+    "/tenants/{tenantId}/notice-requests": {
+      "post": {
+        "tags": [
+          "Notices"
+        ],
+        "summary": "Tenant starts notice request",
+        "description": "Creates a PENDING notice request with proposed exit date; owner will approve/modify/reject.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "proposedExitOn": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "notes": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Notice request created"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Notices"
+        ],
+        "summary": "Owner: list notice requests for tenant",
+        "description": "Returns current and past notice requests for auditing and actions.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notice requests returned"
+          }
+        }
+      }
+    },
+    "/tenants/{tenantId}/notice-requests/{reqId}/decision": {
+      "post": {
+        "tags": [
+          "Notices"
+        ],
+        "summary": "Owner decision on notice request",
+        "description": "Owner approves, rejects, or modifies final exit date; system then allows settlement compute/confirm.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "reqId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "decision": {
+                    "type": "string",
+                    "enum": [
+                      "APPROVE",
+                      "REJECT",
+                      "MODIFY"
+                    ]
+                  },
+                  "finalExitOn": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "ownerNote": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Decision recorded"
+          }
+        }
+      }
+    },
+    "/tenants/{tenantId}/settlement/compute": {
+      "post": {
+        "tags": [
+          "Notices"
+        ],
+        "summary": "Compute settlement preview",
+        "description": "Calculates early exit fee per settings, applies deposit/discounts in preview.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "givenOn": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "intendedExitOn": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "discountOrWaiver": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Preview"
+          }
+        }
+      }
+    },
+    "/tenants/{tenantId}/settlement/confirm": {
+      "post": {
+        "tags": [
+          "Notices"
+        ],
+        "summary": "Confirm settlement",
+        "description": "Locks preview into a final bill or dues record; updates tenant status.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Settlement confirmed"
+          }
+        }
+      }
+    },
+    "/dues": {
+      "post": {
+        "tags": [
+          "Dues"
+        ],
+        "summary": "Create dues record",
+        "description": "When tenant leaves without clearing, create a dues record against residentKey.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DuesRecord"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Dues record created"
+          }
+        }
+      }
+    },
+    "/dues/search": {
+      "get": {
+        "tags": [
+          "Dues"
+        ],
+        "summary": "Search dues",
+        "description": "Check for unresolved dues during onboarding.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "residentKey",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dues list"
+          }
+        }
+      }
+    },
+    "/dues/{id}/clear": {
+      "post": {
+        "tags": [
+          "Dues"
+        ],
+        "summary": "Clear dues",
+        "description": "Mark a dues record as cleared.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cleared"
+          }
+        }
+      }
+    },
+    "/referrals": {
+      "post": {
+        "tags": [
+          "Referrals"
+        ],
+        "summary": "Create referral link/QR",
+        "description": "Owner creates a referral to invite another PG owner.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Referral created"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Referrals"
+        ],
+        "summary": "List referrals",
+        "description": "List referrals by status.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "APPROVED",
+                "REJECTED"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Referrals returned"
+          }
+        }
+      }
+    },
+    "/referrals/claim": {
+      "post": {
+        "tags": [
+          "Referrals"
+        ],
+        "summary": "Claim referral (new PG)",
+        "description": "New PG uses referral link/QR to claim; triggers admin notification and pending approval.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "referralId": {
+                    "type": "string"
+                  },
+                  "claimantOrg": {
+                    "$ref": "#/components/schemas/Organization"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Referral claim recorded"
+          }
+        }
+      }
+    },
+    "/wallet": {
+      "get": {
+        "tags": [
+          "Wallet"
+        ],
+        "summary": "Get wallet balance & history",
+        "description": "Shows referral credits and subscription debits.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Wallet"
+          }
+        }
+      }
+    },
+    "/wallet/credit": {
+      "post": {
+        "tags": [
+          "Wallet"
+        ],
+        "summary": "System credit to wallet",
+        "description": "System credits wallet after referral approval.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "amount": {
+                    "type": "number"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "REFERRAL_BONUS"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Wallet credited"
+          }
+        }
+      }
+    },
+    "/subscriptions/renew": {
+      "post": {
+        "tags": [
+          "Wallet"
+        ],
+        "summary": "Renew subscription (apply wallet)",
+        "description": "Renews org subscription and optionally applies wallet funds.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscriptionRenewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Subscription renewed"
+          }
+        }
+      }
+    },
+    "/reports/collections": {
+      "get": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Collections summary",
+        "description": "Aggregates collected vs pending for a month.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "month",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "example": "2025-09"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Summary returned"
+          }
+        }
+      }
+    },
+    "/reports/outstanding": {
+      "get": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Outstanding dues",
+        "description": "List tenants/bills still unpaid for the month.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "month",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Outstanding returned"
+          }
+        }
+      }
+    }
+  }
+}
